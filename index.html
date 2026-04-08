@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>给宇先生的信</title>
+<style>
+  /* 移除了外部字体引用，直接使用系统内置楷体 */
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: #fff5f5;
+    /* 优化后的楷体字体族：优先调用各系统内置楷体 */
+    font-family: "Kaiti SC", "STKaiti", "楷体", "KaiTi", "BiauKai", "楷体_GB2312", serif;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ===== FLOATING HEARTS CANVAS ===== */
+  #hearts-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .heart-particle {
+    position: absolute;
+    bottom: -60px;
+    animation: floatUp linear infinite;
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  .heart-particle::before {
+    content: '♥';
+    display: block;
+  }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 0; }
+    10%  { opacity: var(--opacity); }
+    80%  { opacity: var(--opacity); }
+    100% { transform: translateY(-110vh) scale(var(--scale)) rotate(var(--rotate)); opacity: 0; }
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .content {
+    position: relative;
+    z-index: 10;
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 60px 30px 80px;
+    text-align: center;
+  }
+
+  /* Title */
+  .to-name {
+    font-size: 24px; /* 楷体稍大一点更有力量感 */
+    font-weight: 900;
+    color: #c0392b;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+  }
+
+  /* Counter header */
+  .counter-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: #c0392b;
+    line-height: 1.8;
+    margin-bottom: 22px;
+  }
+
+  /* Letter body */
+  .letter-body p {
+    font-size: 16px; /* 楷体建议稍微调大，更易阅读 */
+    color: #c0392b;
+    line-height: 2.4;
+    margin-bottom: 14px;
+    white-space: normal;
+    word-break: break-all;
+    text-align: center;
+  }
+
+  .letter-body p.small {
+    font-size: 14px;
+    opacity: 0.85;
+  }
+
+  /* Signature */
+  .signature {
+    margin-top: 35px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #c0392b;
+  }
+</style>
+</head>
+<body>
+
+<div id="hearts-canvas"></div>
+
+<div class="content">
+  <div class="to-name">宇先生</div>
+
+  <div class="counter-label">
+    咱俩已经认识<br>
+    <span id="know-days">0</span>天<span id="know-hours">0</span>小时<span id="know-mins">0</span>分<span id="know-secs">0</span>秒了<br>
+    相恋了<span id="love-days">0</span>天<span id="love-hours">0</span>小时<span id="love-mins">0</span>分<span id="love-secs">0</span>秒
+  </div>
+
+  <div class="letter-body">
+    <p>还记得那天，你说「同桃城互关👋」嘛。</p>
+    <p>嘿嘿，那是我们刚认识的那天。</p>
+    <p>后来，我发现宝宝好有意思，有少年感又不失稳重。</p>
+    <p class="small">哈哈（悄咪咪🤫说）爸爸把我本性挖掘的很彻底嘛，太懂我啦。</p>
+    <p>我们以后不要分开了好不好，我想陪你到 100 岁。</p>
+    <p>你永远是我的宝贝，以后我要让你天天都开心。</p>
+    <p>我宠着你❤️</p>
+    <p>在你没抛弃我之前，我每一刻都是爱你哒。</p>
+    <p>我有太多的话想和你说，太多的事想和你做。</p>
+    <p>我还想给爸爸做饭吃呢～</p>
+    <p>陪爸爸一起吃饭、睡觉、逛街、旅游～</p>
+    <p>饭后一起去遛弯，或者打游戏也很幸福呀。</p>
+    <p>和你在一起的每一秒，幸福感都溢出来啦。</p>
+    <p>虽然现在不能陪在你身边，但是以后一定会让你幸福。</p>
+    <p>等结束异地，我们可以等到的对吧🥺</p>
+    <p>我不在的时候，一定要想我哦。</p>
+    <p>希望中间的计时器，永远不要停，直至数据溢出。</p>
+  </div>
+
+  <div class="signature">——爱你的原文</div>
+</div>
+
+<script>
+// 计时器逻辑 (保持不变)
+const knowTime = new Date('2025-10-04T16:00:00');
+const loveTime = new Date('2025-10-06T00:00:00');
+
+function updateCounters() {
+  const now = new Date();
+  function calcDiff(start) {
+    let diff = Math.floor((now - start) / 1000);
+    if (diff < 0) diff = 0;
+    return {
+      days: Math.floor(diff / 86400),
+      hours: Math.floor((diff % 86400) / 3600),
+      mins: Math.floor((diff % 3600) / 60),
+      secs: diff % 60
+    };
+  }
+  const k = calcDiff(knowTime);
+  document.getElementById('know-days').textContent  = k.days;
+  document.getElementById('know-hours').textContent = k.hours;
+  document.getElementById('know-mins').textContent  = k.mins;
+  document.getElementById('know-secs').textContent  = k.secs;
+
+  const l = calcDiff(loveTime);
+  document.getElementById('love-days').textContent  = l.days;
+  document.getElementById('love-hours').textContent = l.hours;
+  document.getElementById('love-mins').textContent  = l.mins;
+  document.getElementById('love-secs').textContent  = l.secs;
+}
+setInterval(updateCounters, 1000);
+updateCounters();
+
+// 红心特效逻辑 (保持不变)
+const canvas = document.getElementById('hearts-canvas');
+const colors = ['rgba(220,80,80,VAL)','rgba(230,120,120,VAL)','rgba(255,160,160,VAL)'];
+function spawnHeart() {
+  const el = document.createElement('div');
+  el.className = 'heart-particle';
+  const size = Math.random() * 36 + 12;
+  const opacity = Math.random() * 0.6 + 0.2;
+  el.style.cssText = `
+    left: ${Math.random() * 100}%;
+    font-size: ${size}px;
+    color: ${colors[Math.floor(Math.random()*colors.length)].replace('VAL', opacity)};
+    --opacity: ${opacity};
+    --scale: ${Math.random() * 0.7 + 0.7};
+    --rotate: ${Math.random() * 60 - 30}deg;
+    animation-duration: ${Math.random() * 4000 + 6000}ms;
+  `;
+  canvas.appendChild(el);
+  setTimeout(() => el.remove(), 11000);
+}
+setInterval(spawnHeart, 600);
+</script>
+</body>
+</html>
