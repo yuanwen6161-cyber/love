@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我们的小世界</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0a12;--surface:#16111f;--surface2:#1e1729;--rose:#c8637a;--rose-light:#e8899a;--rose-dim:rgba(200,99,122,0.15);--gold:#c9a96e;--text:#e8ddd0;--text-dim:#7a6e7e;--border:rgba(200,99,122,0.2);--glow:0 0 30px rgba(200,99,122,0.25)}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Noto Serif SC',serif;min-height:100vh;overflow-x:hidden;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(1px 1px at 15% 20%,rgba(255,255,255,.5) 0%,transparent 100%),radial-gradient(1px 1px at 40% 10%,rgba(255,255,255,.4) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 70% 30%,rgba(255,255,255,.3) 0%,transparent 100%),radial-gradient(1px 1px at 85% 15%,rgba(255,255,255,.5) 0%,transparent 100%),radial-gradient(1px 1px at 25% 60%,rgba(255,255,255,.3) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 55% 75%,rgba(255,255,255,.4) 0%,transparent 100%),radial-gradient(1px 1px at 90% 55%,rgba(255,255,255,.3) 0%,transparent 100%),radial-gradient(1px 1px at 10% 85%,rgba(255,255,255,.4) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 35% 90%,rgba(255,255,255,.3) 0%,transparent 100%),radial-gradient(1px 1px at 65% 45%,rgba(255,255,255,.5) 0%,transparent 100%),radial-gradient(1px 1px at 78% 82%,rgba(255,255,255,.3) 0%,transparent 100%),radial-gradient(1px 1px at 48% 35%,rgba(255,255,255,.4) 0%,transparent 100%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:-30%;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(200,99,122,.08) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+/* LOCK */
+#lockScreen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:26px;padding:40px}
+.lock-icon{font-size:48px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.lock-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-style:italic;color:var(--rose-light);text-align:center}
+.lock-subtitle{font-size:13px;color:var(--text-dim);letter-spacing:2px}
+.pin-dots{display:flex;gap:16px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .2s}
+.pin-dot.filled{background:var(--rose);border-color:var(--rose);box-shadow:0 0 12px rgba(200,99,122,.6)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:240px}
+.num-btn{background:var(--surface2);border:1px solid var(--border);border-radius:50%;width:72px;height:72px;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:24px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.num-btn:active{background:var(--rose-dim);border-color:var(--rose);transform:scale(.95)}
+.num-btn.del{font-size:20px;color:var(--text-dim)}
+.lock-error{color:var(--rose);font-size:13px;height:20px;text-align:center}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* LOADING */
+#loadingOverlay{position:fixed;inset:0;background:rgba(13,10,18,.7);display:none;align-items:center;justify-content:center;z-index:900;flex-direction:column;gap:16px;backdrop-filter:blur(4px)}
+.loading-spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--rose);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--text-dim);letter-spacing:2px}
+
+/* TOAST */
+#toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:10px 20px;font-size:13px;color:var(--text);z-index:2000;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;box-shadow:var(--glow)}
+#toast.show{opacity:1}
+
+/* APP */
+#app{display:none;flex-direction:column;min-height:100vh;position:relative;z-index:1}
+#app.visible{display:flex}
+
+/* HEADER */
+.header{padding:52px 24px 16px;text-align:center}
+.header-subtitle{font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:4px;color:var(--gold);margin-bottom:6px;opacity:.8}
+.header-title{font-family:'Ma Shan Zheng',cursive;font-size:34px;color:var(--text);line-height:1.2}
+.header-title span{color:var(--rose-light)}
+.header-deco{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;color:var(--rose);opacity:.5;font-size:12px;letter-spacing:6px}
+.header-deco::before,.header-deco::after{content:'';width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--rose))}
+.header-deco::after{background:linear-gradient(90deg,var(--rose),transparent)}
+
+/* TIMER */
+.timer-card{margin:0 16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px 20px;text-align:center;position:relative;overflow:hidden}
+.timer-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(200,99,122,.08) 0%,transparent 70%);pointer-events:none}
+.timer-name{font-family:'Ma Shan Zheng',cursive;font-size:15px;color:var(--gold);margin-bottom:10px}
+.timer-label{font-size:11px;letter-spacing:3px;color:var(--text-dim);margin-bottom:8px}
+.timer-row{display:flex;justify-content:center;gap:10px;margin-bottom:6px}
+.timer-block{text-align:center}
+.timer-num{font-family:'Cormorant Garamond',serif;font-size:34px;color:var(--rose-light);line-height:1;font-weight:300}
+.timer-unit{font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-top:2px}
+.timer-sep{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--rose);opacity:.4;line-height:1.3}
+.timer-divider{width:100%;height:1px;background:var(--border);margin:12px 0}
+.timer-sub{font-size:12px;color:var(--text-dim)}
+.timer-sub span{color:var(--rose-light)}
+
+/* TABS */
+.tabs{display:flex;margin:0 16px 16px;background:var(--surface);border-radius:16px;padding:4px;border:1px solid var(--border);overflow-x:auto;gap:2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:9px 13px;text-align:center;font-size:12px;color:var(--text-dim);cursor:pointer;border-radius:12px;transition:all .3s;white-space:nowrap}
+.tab.active{background:var(--rose-dim);color:var(--rose-light);border:1px solid var(--border)}
+
+/* SECTIONS */
+.section{display:none;padding:0 16px 120px;animation:fadeUp .4s ease}
+.section.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* TOOLBAR */
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 2px}
+.toolbar-label{font-size:12px;color:var(--text-dim);letter-spacing:1px}
+.add-btn{display:flex;align-items:center;gap:6px;background:var(--rose-dim);border:1px solid var(--border);border-radius:20px;padding:8px 16px;color:var(--rose-light);font-size:13px;font-family:'Noto Serif SC',serif;cursor:pointer;transition:all .2s}
+.add-btn:active{transform:scale(.97)}
+#fileInput,#placeImgInput{display:none}
+
+/* PHOTO */
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.photo-card{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:3/4;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:transform .2s}
+.photo-card:active{transform:scale(.97)}
+.photo-card img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(13,10,18,.85));padding:24px 12px 12px}
+.photo-caption{font-size:12px;color:var(--text);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-date{font-size:10px;color:var(--text-dim);margin-top:2px}
+.photo-delete{position:absolute;top:8px;right:8px;background:rgba(13,10,18,.7);border:none;border-radius:50%;width:28px;height:28px;color:var(--rose);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.photo-card.show-delete .photo-delete{opacity:1}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty-state .ei{font-size:48px;margin-bottom:16px}
+.empty-state p{font-size:14px;line-height:1.8}
+
+/* MESSAGES */
+.messages-list{display:flex;flex-direction:column;gap:16px}
+.msg-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px;position:relative;animation:fadeUp .3s ease}
+.msg-card::before{content:'"';position:absolute;top:12px;left:16px;font-family:'Cormorant Garamond',serif;font-size:48px;color:var(--rose);opacity:.2;line-height:1}
+.msg-author{font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.msg-dot{width:6px;height:6px;border-radius:50%;background:var(--rose);box-shadow:0 0 6px var(--rose)}
+.msg-text{font-size:15px;line-height:1.8;color:var(--text);padding-left:4px}
+.msg-date{font-size:11px;color:var(--text-dim);margin-top:12px;text-align:right;font-family:'Cormorant Garamond',serif;font-style:italic}
+.msg-del{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;opacity:.4}
+.msg-del:active{opacity:1;color:var(--rose)}
+
+/* COMPOSE */
+.compose-bar{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(transparent,var(--bg) 30%);padding:20px 16px 32px;z-index:100}
+.compose-who{display:flex;gap:6px;margin-bottom:8px;padding:0 4px}
+.who-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-family:'Noto Serif SC',serif;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);transition:all .2s;letter-spacing:1px}
+.who-btn.selected{background:var(--rose-dim);border-color:var(--rose);color:var(--rose-light)}
+.compose-inner{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 4px 4px 16px;display:flex;align-items:flex-end;gap:8px;box-shadow:var(--glow)}
+.compose-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Noto Serif SC',serif;font-size:14px;padding:10px 0;resize:none;max-height:120px;line-height:1.6}
+.compose-input::placeholder{color:var(--text-dim)}
+.send-btn{width:40px;height:40px;border-radius:14px;background:var(--rose);border:none;color:white;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send-btn:active{opacity:.8}
+
+/* DATES */
+.dates-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.date-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:16px}
+.date-icon{font-size:28px;flex-shrink:0}
+.date-info{flex:1;min-width:0}
+.date-name{font-size:15px;color:var(--text);margin-bottom:3px}
+.date-val{font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--gold)}
+.date-countdown{font-size:12px;color:var(--rose-light);margin-top:3px}
+.date-del{background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;opacity:.4;flex-shrink:0}
+.date-del:active{opacity:1;color:var(--rose)}
+
+/* SONGS */
+.songs-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.song-wrap{position:relative}
+.song-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit}
+.song-card:active{transform:scale(.98);background:var(--surface2)}
+.song-vinyl{width:52px;height:52px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 0deg,#1a1020,#2a1a30,#1a1020,#2a1a30,#1a1020);border:3px solid var(--border);display:flex;align-items:center;justify-content:center}
+.song-vinyl.playing{animation:spin 3s linear infinite}
+.song-vinyl::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--bg)}
+.song-info{flex:1;min-width:0}
+.song-title{font-size:15px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song-artist{font-size:12px;color:var(--text-dim);letter-spacing:1px}
+.song-note{font-size:11px;color:var(--rose-light);margin-top:3px;font-style:italic}
+.song-arrow{color:var(--gold);opacity:.6;font-size:18px;flex-shrink:0}
+.song-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-dim);font-size:15px;cursor:pointer;opacity:.4;padding:4px}
+.song-del:active{opacity:1;color:var(--rose)}
+
+/* PLACES */
+.places-tabs{display:flex;gap:8px;margin-bottom:16px}
+.place-tab{flex:1;padding:9px;text-align:center;font-size:13px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;transition:all .2s}
+.place-tab.active{background:var(--rose-dim);border-color:var(--rose);color:var(--rose-light)}
+.places-sub{display:none}
+.places-sub.active{display:block}
+.places-list{display:flex;flex-direction:column;gap:12px}
+.place-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.place-img-wrap{width:100%;height:140px;background:var(--surface2);overflow:hidden;position:relative;cursor:pointer}
+.place-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.place-img-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px;opacity:.3}
+.place-img-add{position:absolute;bottom:8px;right:8px;background:rgba(13,10,18,.75);border:1px solid var(--border);border-radius:10px;padding:5px 10px;color:var(--text-dim);font-size:11px;cursor:pointer;letter-spacing:1px}
+.place-body{padding:13px 16px;display:flex;align-items:flex-start;gap:12px}
+.place-info{flex:1;min-width:0}
+.place-city{font-size:16px;color:var(--text);margin-bottom:3px}
+.place-note{font-size:12px;color:var(--text-dim);line-height:1.5}
+.place-del{background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;opacity:.4;flex-shrink:0}
+.place-del:active{opacity:1;color:var(--rose)}
+
+/* BUCKET */
+.bucket-list{display:flex;flex-direction:column;gap:10px}
+.bucket-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:all .3s}
+.bucket-item.done{opacity:.5}
+.bucket-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;background:transparent;font-size:12px;color:white}
+.bucket-check.checked{background:var(--rose);border-color:var(--rose)}
+.bucket-text{flex:1;font-size:14px;color:var(--text);line-height:1.4}
+.bucket-item.done .bucket-text{text-decoration:line-through;color:var(--text-dim)}
+.bucket-sub{font-size:12px;color:var(--text-dim)}
+.bucket-del{background:none;border:none;color:var(--text-dim);font-size:15px;cursor:pointer;opacity:.4}
+.bucket-del:active{opacity:1;color:var(--rose)}
+
+/* ADD FORM */
+.add-form{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:4px}
+.form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.form-label{font-size:11px;letter-spacing:2px;color:var(--text-dim)}
+.form-input{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Noto Serif SC',serif;font-size:14px;outline:none;width:100%;transition:border-color .2s}
+.form-input:focus{border-color:var(--rose)}
+.btn-full{width:100%;padding:12px;background:var(--rose);border:none;border-radius:12px;color:white;font-family:'Noto Serif SC',serif;font-size:14px;cursor:pointer;transition:opacity .2s;margin-top:4px}
+.btn-full:active{opacity:.8}
+
+/* MODALS */
+.modal-bg{position:fixed;inset:0;background:rgba(13,10,18,.85);backdrop-filter:blur(8px);z-index:500;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal-sheet{background:var(--surface2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:24px;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-style:italic;color:var(--rose-light);margin-bottom:16px;text-align:center}
+.modal-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-family:'Noto Serif SC',serif;font-size:14px;resize:none;outline:none;transition:border-color .2s;margin-bottom:10px;display:block}
+.modal-input:focus{border-color:var(--rose)}
+.modal-actions{display:flex;gap:12px;margin-top:6px}
+.btn-cancel{flex:1;padding:12px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text-dim);font-family:'Noto Serif SC',serif;font-size:14px;cursor:pointer}
+.btn-confirm{flex:1;padding:12px;background:var(--rose);border:none;border-radius:12px;color:white;font-family:'Noto Serif SC',serif;font-size:14px;cursor:pointer}
+.btn-confirm:active{opacity:.8}
+
+/* LIGHTBOX */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:600;display:none;align-items:center;justify-content:center;flex-direction:column}
+.lightbox.open{display:flex}
+.lightbox img{max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px}
+.lightbox-caption{color:var(--text);font-size:14px;margin-top:16px;padding:0 32px;text-align:center;line-height:1.6}
+.lightbox-close{position:absolute;top:52px;right:20px;background:none;border:none;color:var(--text-dim);font-size:28px;cursor:pointer}
+
+/* PETALS */
+.petal{position:fixed;pointer-events:none;z-index:9999;font-size:12px;opacity:0;animation:petalFall linear forwards}
+@keyframes petalFall{0%{opacity:.6;transform:translateY(-20px) rotate(0deg)}100%{opacity:0;transform:translateY(100vh) rotate(360deg)}}
+@media(max-width:360px){.num-btn{width:64px;height:64px;font-size:20px}.numpad{width:210px;gap:10px}}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" style="display:none">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">加载中...</div>
+</div>
+<div id="toast"></div>
+
+<!-- LOCK -->
+<div id="lockScreen">
+  <div class="lock-icon">🌙</div>
+  <div class="lock-title">我们的小世界</div>
+  <div class="lock-subtitle">仅属于你和我</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="lock-error" id="lockError"></div>
+  <div class="numpad" id="numpad">
+    <button class="num-btn" data-n="1">1</button><button class="num-btn" data-n="2">2</button><button class="num-btn" data-n="3">3</button>
+    <button class="num-btn" data-n="4">4</button><button class="num-btn" data-n="5">5</button><button class="num-btn" data-n="6">6</button>
+    <button class="num-btn" data-n="7">7</button><button class="num-btn" data-n="8">8</button><button class="num-btn" data-n="9">9</button>
+    <button class="num-btn" data-n=""></button><button class="num-btn" data-n="0">0</button><button class="num-btn del" id="delBtn">⌫</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <div class="header-subtitle">Our Little World</div>
+    <div class="header-title">我们的<span>小世界</span></div>
+    <div class="header-deco">♡</div>
+  </div>
+
+  <div class="timer-card">
+    <div class="timer-name">宇先生 ♡ 垣小姐</div>
+    <div class="timer-label">相 恋</div>
+    <div class="timer-row">
+      <div class="timer-block"><div class="timer-num" id="tDays">000</div><div class="timer-unit">天</div></div>
+      <div class="timer-sep">:</div>
+      <div class="timer-block"><div class="timer-num" id="tHours">00</div><div class="timer-unit">时</div></div>
+      <div class="timer-sep">:</div>
+      <div class="timer-block"><div class="timer-num" id="tMins">00</div><div class="timer-unit">分</div></div>
+      <div class="timer-sep">:</div>
+      <div class="timer-block"><div class="timer-num" id="tSecs">00</div><div class="timer-unit">秒</div></div>
+    </div>
+    <div class="timer-divider"></div>
+    <div class="timer-sub">认识已经 <span id="metDays">0</span> 天了 🌸</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="album">📷 相册</div>
+    <div class="tab" data-tab="messages">💌 留言</div>
+    <div class="tab" data-tab="dates">📅 纪念日</div>
+    <div class="tab" data-tab="songs">🎵 我们的歌</div>
+    <div class="tab" data-tab="places">🗺 足迹</div>
+  </div>
+
+  <!-- ALBUM -->
+  <div class="section active" id="albumSection">
+    <div class="toolbar">
+      <div class="toolbar-label" id="photoCount">0 张照片</div>
+      <label class="add-btn">＋ 添加<input type="file" id="fileInput" accept="image/*"></label>
+    </div>
+    <div class="photo-grid" id="photoGrid">
+      <div class="empty-state" id="emptyAlbum" style="grid-column:1/-1"><div class="ei">🌸</div><p>还没有照片<br>把我们的瞬间都放进来吧</p></div>
+    </div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div class="section" id="messagesSection">
+    <div class="messages-list" id="messagesList">
+      <div class="empty-state" id="emptyMsg"><div class="ei">💬</div><p>还没有留言<br>说点什么给他/她吧</p></div>
+    </div>
+  </div>
+
+  <!-- DATES -->
+  <div class="section" id="datesSection">
+    <div class="dates-list" id="datesList"></div>
+    <div class="add-form">
+      <div class="form-row"><div class="form-label">名称</div><input class="form-input" id="dateName" placeholder="例：第一次牵手"></div>
+      <div class="form-row"><div class="form-label">日期</div><input class="form-input" id="dateVal" type="date"></div>
+      <div class="form-row"><div class="form-label">图标（emoji）</div><input class="form-input" id="dateIcon" placeholder="🌹" maxlength="4"></div>
+      <button class="btn-full" id="addDateBtn">＋ 添加纪念日</button>
+    </div>
+  </div>
+
+  <!-- SONGS -->
+  <div class="section" id="songsSection">
+    <div class="songs-list" id="songsList"></div>
+    <div class="add-form">
+      <div class="form-row"><div class="form-label">歌名</div><input class="form-input" id="songTitle" placeholder="特别的人"></div>
+      <div class="form-row"><div class="form-label">歌手</div><input class="form-input" id="songArtist" placeholder="方大同"></div>
+      <div class="form-row"><div class="form-label">网易云链接（选填）</div><input class="form-input" id="songUrl" placeholder="https://163cn.tv/..."></div>
+      <div class="form-row"><div class="form-label">备注（选填）</div><input class="form-input" id="songNote" placeholder="例：第一首送你的歌"></div>
+      <button class="btn-full" id="addSongBtn">＋ 添加歌曲</button>
+    </div>
+  </div>
+
+  <!-- PLACES -->
+  <div class="section" id="placesSection">
+    <div class="places-tabs">
+      <div class="place-tab active" data-ptab="visited">去过的 ✓</div>
+      <div class="place-tab" data-ptab="bucket">想去的 ♡</div>
+    </div>
+    <div class="places-sub active" id="visitedSection">
+      <div class="toolbar">
+        <div class="toolbar-label" id="visitedCount">0 个地方</div>
+        <button class="add-btn" id="addVisitedBtn">＋ 添加</button>
+      </div>
+      <div class="places-list" id="visitedList">
+        <div class="empty-state" id="emptyVisited"><div class="ei">🗺</div><p>记录你们去过的地方</p></div>
+      </div>
+    </div>
+    <div class="places-sub" id="bucketSection">
+      <div class="toolbar">
+        <div class="toolbar-label" id="bucketCount">0 个心愿</div>
+        <button class="add-btn" id="addBucketBtn">＋ 添加</button>
+      </div>
+      <div class="bucket-list" id="bucketList">
+        <div class="empty-state" id="emptyBucket"><div class="ei">✨</div><p>写下想一起去的地方<br>去过一个就勾掉一个</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="captionModal">
+  <div class="modal-sheet"><div class="modal-handle"></div><div class="modal-title">给这张照片写点什么</div>
+    <textarea class="modal-input" id="captionInput" rows="3" placeholder="记录这一刻的心情..."></textarea>
+    <div class="modal-actions"><button class="btn-cancel" id="captionCancel">取消</button><button class="btn-confirm" id="captionConfirm">上传</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="visitedModal">
+  <div class="modal-sheet"><div class="modal-handle"></div><div class="modal-title">添加去过的地方</div>
+    <input class="modal-input" id="vCity" placeholder="城市名，例：武汉">
+    <input class="modal-input" id="vNote" placeholder="备注，例：第一次见面 💕">
+    <div class="modal-actions"><button class="btn-cancel" id="visitedCancel">取消</button><button class="btn-confirm" id="visitedConfirm">添加</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="bucketModal">
+  <div class="modal-sheet"><div class="modal-handle"></div><div class="modal-title">想一起去的地方</div>
+    <input class="modal-input" id="bCity" placeholder="城市或地点，例：京都">
+    <input class="modal-input" id="bNote" placeholder="备注，例：一起看樱花 🌸">
+    <div class="modal-actions"><button class="btn-cancel" id="bucketCancel">取消</button><button class="btn-confirm" id="bucketConfirm">添加</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="placeImgModal">
+  <div class="modal-sheet"><div class="modal-handle"></div><div class="modal-title">给这个地方添加照片</div>
+    <label class="add-btn" style="width:100%;justify-content:center;margin-bottom:12px;cursor:pointer">选择照片<input type="file" id="placeImgInput" accept="image/*"></label>
+    <button class="btn-cancel" id="placeImgCancel" style="width:100%">取消</button>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="">
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<div class="compose-bar" id="composeBar" style="display:none">
+  <div class="compose-who">
+    <button class="who-btn selected" id="whoMe">宇先生</button>
+    <button class="who-btn" id="whoHer">垣小姐</button>
+  </div>
+  <div class="compose-inner">
+    <textarea class="compose-input" id="msgInput" rows="1" placeholder="写下你想说的话..."></textarea>
+    <button class="send-btn" id="sendBtn">↑</button>
+  </div>
+</div>
+
+<script>
+const {createClient} = supabase;
+const sb = createClient(
+  'https://dmdolslxmpjhmvyqxgpl.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZG9sc2x4bXBqaG12eXF4Z3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MzY0MDMsImV4cCI6MjA5MTMxMjQwM30.rIJTWP8OQnydtpWvNX9U9XOlW29Lq1r9ZrGIlKgJnLo'
+);
+
+const PASSWORD  = '1004';
+const MET_TIME  = new Date('2025-10-04T16:00:00');
+const LOVE_TIME = new Date('2025-10-06T00:00:00');
+
+let pinEntry='', selectedWho='宇先生', pendingFile=null, pendingPlaceId=null;
+let photos=[], messages=[], dates=[], songs=[], visited=[], bucket=[];
+
+// ── UTILS ──
+function showLoading(v){document.getElementById('loadingOverlay').style.display=v?'flex':'none'}
+let _tt; function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2500)}
+
+// ── TIMER ──
+function updateTimer(){
+  const now=Date.now(), ls=Math.floor((now-LOVE_TIME)/1000), ms=now-MET_TIME;
+  if(ls<0)return;
+  document.getElementById('tDays').textContent=String(Math.floor(ls/86400)).padStart(3,'0');
+  document.getElementById('tHours').textContent=String(Math.floor((ls%86400)/3600)).padStart(2,'0');
+  document.getElementById('tMins').textContent=String(Math.floor((ls%3600)/60)).padStart(2,'0');
+  document.getElementById('tSecs').textContent=String(ls%60).padStart(2,'0');
+  document.getElementById('metDays').textContent=Math.floor(ms/86400000);
+}
+setInterval(updateTimer,1000); updateTimer();
+
+// ── LOCK ──
+function updateDots(){for(let i=0;i<4;i++)document.getElementById('d'+i).classList.toggle('filled',i<pinEntry.length)}
+document.getElementById('numpad').addEventListener('click',e=>{
+  const btn=e.target.closest('.num-btn'); if(!btn)return;
+  if(btn.id==='delBtn'){pinEntry=pinEntry.slice(0,-1);updateDots();return}
+  const n=btn.dataset.n; if(n===''||pinEntry.length>=4)return;
+  pinEntry+=n; updateDots();
+  if(pinEntry.length===4) setTimeout(async()=>{
+    if(pinEntry===PASSWORD){
+      document.getElementById('lockScreen').style.display='none';
+      document.getElementById('app').classList.add('visible');
+      await loadAll();
+    } else {
+      const el=document.getElementById('lockError');
+      el.textContent='密码错误，再试一次';
+      el.style.animation='none'; void el.offsetHeight; el.style.animation='shake .3s ease';
+      pinEntry=''; updateDots(); setTimeout(()=>el.textContent='',2000);
+    }
+  },200);
+});
+
+// ── LOAD ALL ──
+async function loadAll(){
+  showLoading(true);
+  await Promise.all([fetchPhotos(),fetchMessages(),fetchDates(),fetchSongs(),fetchVisited(),fetchBucket()]);
+  showLoading(false);
+}
+
+// ── TABS ──
+document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{
+  const t=tab.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); tab.classList.add('active');
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById(t+'Section').classList.add('active');
+  document.getElementById('composeBar').style.display=t==='messages'?'block':'none';
+}));
+document.querySelectorAll('.place-tab').forEach(pt=>pt.addEventListener('click',()=>{
+  const p=pt.dataset.ptab;
+  document.querySelectorAll('.place-tab').forEach(x=>x.classList.remove('active')); pt.classList.add('active');
+  document.querySelectorAll('.places-sub').forEach(s=>s.classList.remove('active')); document.getElementById(p+'Section').classList.add('active');
+}));
+
+// ── IMAGE COMPRESS ──
+function compressImage(file,maxSize,quality){
+  return new Promise(resolve=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let {width:w,height:h}=img;
+      if(w>maxSize||h>maxSize){if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}else{w=Math.round(w*maxSize/h);h=maxSize;}}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(b=>resolve(b),'image/jpeg',quality);
+    }; img.src=url;
+  });
+}
+
+// ── PHOTOS ──
+document.getElementById('fileInput').addEventListener('change',function(e){
+  const f=e.target.files[0]; if(!f)return;
+  pendingFile=f; document.getElementById('captionInput').value='';
+  document.getElementById('captionModal').classList.add('open'); this.value='';
+});
+document.getElementById('captionCancel').addEventListener('click',()=>{document.getElementById('captionModal').classList.remove('open');pendingFile=null});
+document.getElementById('captionConfirm').addEventListener('click',async()=>{
+  if(!pendingFile)return;
+  document.getElementById('captionModal').classList.remove('open');
+  showLoading(true);
+  const caption=document.getElementById('captionInput').value.trim();
+  const blob=await compressImage(pendingFile,1200,.82);
+  const path=`${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+  const {error:se}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg'});
+  if(se){toast('上传失败 😢');showLoading(false);return;}
+  const {data:{publicUrl}}=sb.storage.from('photos').getPublicUrl(path);
+  await sb.from('photos').insert([{url:publicUrl,caption,storage_path:path}]);
+  toast('上传成功 🌸'); spawnPetals(); await fetchPhotos(); showLoading(false); pendingFile=null;
+});
+async function fetchPhotos(){
+  const {data}=await sb.from('photos').select('*').order('created_at',{ascending:false});
+  photos=data||[]; renderPhotos();
+}
+function renderPhotos(){
+  const grid=document.getElementById('photoGrid');
+  document.getElementById('photoCount').textContent=photos.length+' 张照片';
+  grid.querySelectorAll('.photo-card').forEach(c=>c.remove());
+  document.getElementById('emptyAlbum').style.display=photos.length?'none':'block';
+  photos.forEach(p=>{
+    const card=document.createElement('div'); card.className='photo-card';
+    const ds=new Date(p.created_at).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+    card.innerHTML=`<img src="${p.url}" loading="lazy" alt=""><div class="photo-overlay"><div class="photo-caption">${p.caption||'无题'}</div><div class="photo-date">${ds}</div></div><button class="photo-delete">✕</button>`;
+    card.querySelector('img').addEventListener('click',()=>openLightbox(p.url,p.caption));
+    card.querySelector('.photo-overlay').addEventListener('click',()=>openLightbox(p.url,p.caption));
+    let pt; card.addEventListener('touchstart',()=>{pt=setTimeout(()=>card.classList.toggle('show-delete'),500)},{passive:true});
+    card.addEventListener('touchend',()=>clearTimeout(pt),{passive:true});
+    card.querySelector('.photo-delete').addEventListener('click',async ev=>{
+      ev.stopPropagation();
+      if(p.storage_path) await sb.storage.from('photos').remove([p.storage_path]);
+      await sb.from('photos').delete().eq('id',p.id);
+      toast('已删除'); await fetchPhotos();
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ── LIGHTBOX ──
+function openLightbox(src,cap){document.getElementById('lightboxImg').src=src;document.getElementById('lightboxCaption').textContent=cap||'';document.getElementById('lightbox').classList.add('open')}
+document.getElementById('lightboxClose').addEventListener('click',()=>document.getElementById('lightbox').classList.remove('open'));
+document.getElementById('lightbox').addEventListener('click',e=>{if(e.target===document.getElementById('lightbox'))document.getElementById('lightbox').classList.remove('open')});
+
+// ── MESSAGES ──
+document.getElementById('whoMe').addEventListener('click',()=>{selectedWho='宇先生';document.getElementById('whoMe').classList.add('selected');document.getElementById('whoHer').classList.remove('selected')});
+document.getElementById('whoHer').addEventListener('click',()=>{selectedWho='垣小姐';document.getElementById('whoHer').classList.add('selected');document.getElementById('whoMe').classList.remove('selected')});
+const msgInput=document.getElementById('msgInput');
+msgInput.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'});
+document.getElementById('sendBtn').addEventListener('click',sendMsg);
+msgInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+async function sendMsg(){
+  const text=msgInput.value.trim(); if(!text)return;
+  msgInput.value=''; msgInput.style.height='auto';
+  await sb.from('messages').insert([{author:selectedWho,content:text}]);
+  spawnPetals(); await fetchMessages();
+}
+async function fetchMessages(){
+  const {data}=await sb.from('messages').select('*').order('created_at',{ascending:false});
+  messages=data||[]; renderMessages();
+}
+function renderMessages(){
+  const list=document.getElementById('messagesList');
+  list.querySelectorAll('.msg-card').forEach(c=>c.remove());
+  document.getElementById('emptyMsg').style.display=messages.length?'none':'block';
+  messages.forEach(m=>{
+    const card=document.createElement('div'); card.className='msg-card';
+    const ds=new Date(m.created_at).toLocaleString('zh-CN',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    card.innerHTML=`<div class="msg-author"><span class="msg-dot"></span>${m.author}</div><div class="msg-text">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-date">${ds}</div><button class="msg-del">✕</button>`;
+    card.querySelector('.msg-del').addEventListener('click',async()=>{await sb.from('messages').delete().eq('id',m.id);toast('已删除');await fetchMessages()});
+    list.appendChild(card);
+  });
+}
+
+// ── DATES ──
+document.getElementById('addDateBtn').addEventListener('click',async()=>{
+  const name=document.getElementById('dateName').value.trim();
+  const date=document.getElementById('dateVal').value;
+  const icon=document.getElementById('dateIcon').value.trim()||'📅';
+  if(!name||!date)return;
+  await sb.from('dates').insert([{name,date,icon}]);
+  toast('纪念日已添加 📅');
+  document.getElementById('dateName').value=''; document.getElementById('dateVal').value=''; document.getElementById('dateIcon').value='';
+  await fetchDates();
+});
+async function fetchDates(){
+  const {data}=await sb.from('dates').select('*').order('date',{ascending:true});
+  dates=data||[]; renderDates();
+}
+function renderDates(){
+  const list=document.getElementById('datesList');
+  list.querySelectorAll('.date-card').forEach(c=>c.remove());
+  const today=new Date(); today.setHours(0,0,0,0);
+  dates.forEach(d=>{
+    const dt=new Date(d.date); dt.setHours(0,0,0,0);
+    const diff=Math.round((dt-today)/86400000);
+    const cd=diff===0?'🎉 就是今天！':diff>0?`还有 ${diff} 天`:`已经 ${-diff} 天了`;
+    const card=document.createElement('div'); card.className='date-card';
+    card.innerHTML=`<div class="date-icon">${d.icon}</div><div class="date-info"><div class="date-name">${d.name}</div><div class="date-val">${d.date.replace(/-/g,'/')}</div><div class="date-countdown">${cd}</div></div><button class="date-del">✕</button>`;
+    card.querySelector('.date-del').addEventListener('click',async()=>{await sb.from('dates').delete().eq('id',d.id);toast('已删除');await fetchDates()});
+    list.appendChild(card);
+  });
+}
+
+// ── SONGS ──
+document.getElementById('addSongBtn').addEventListener('click',async()=>{
+  const title=document.getElementById('songTitle').value.trim();
+  const artist=document.getElementById('songArtist').value.trim();
+  if(!title||!artist)return;
+  await sb.from('songs').insert([{title,artist,url:document.getElementById('songUrl').value.trim(),note:document.getElementById('songNote').value.trim()}]);
+  toast('歌曲已添加 🎵');
+  ['songTitle','songArtist','songUrl','songNote'].forEach(id=>document.getElementById(id).value='');
+  await fetchSongs();
+});
+async function fetchSongs(){
+  const {data}=await sb.from('songs').select('*').order('created_at',{ascending:true});
+  songs=data||[]; renderSongs();
+}
+function renderSongs(){
+  const list=document.getElementById('songsList');
+  list.querySelectorAll('.song-wrap').forEach(c=>c.remove());
+  songs.forEach(s=>{
+    const wrap=document.createElement('div'); wrap.className='song-wrap';
+    const tag=s.url?'a':'div';
+    const card=document.createElement(tag); card.className='song-card';
+    if(s.url){card.href=s.url;card.target='_blank';card.rel='noopener'}
+    card.innerHTML=`<div class="song-vinyl"></div><div class="song-info"><div class="song-title">${s.title}</div><div class="song-artist">${s.artist}</div>${s.note?`<div class="song-note">${s.note}</div>`:''}</div>${s.url?'<div class="song-arrow">♪</div>':''}`;
+    card.addEventListener('click',()=>card.querySelector('.song-vinyl').classList.toggle('playing'));
+    const del=document.createElement('button'); del.className='song-del'; del.textContent='✕';
+    del.addEventListener('click',async e=>{e.preventDefault();e.stopPropagation();await sb.from('songs').delete().eq('id',s.id);toast('已删除');await fetchSongs()});
+    wrap.appendChild(card); wrap.appendChild(del); list.appendChild(wrap);
+  });
+}
+
+// ── VISITED ──
+document.getElementById('addVisitedBtn').addEventListener('click',()=>document.getElementById('visitedModal').classList.add('open'));
+document.getElementById('visitedCancel').addEventListener('click',()=>document.getElementById('visitedModal').classList.remove('open'));
+document.getElementById('visitedConfirm').addEventListener('click',async()=>{
+  const city=document.getElementById('vCity').value.trim(); if(!city)return;
+  await sb.from('visited').insert([{city,note:document.getElementById('vNote').value.trim()}]);
+  toast('地方已添加 🗺'); spawnPetals();
+  document.getElementById('vCity').value=''; document.getElementById('vNote').value='';
+  document.getElementById('visitedModal').classList.remove('open');
+  await fetchVisited();
+});
+document.getElementById('placeImgCancel').addEventListener('click',()=>{document.getElementById('placeImgModal').classList.remove('open');pendingPlaceId=null});
+document.getElementById('placeImgInput').addEventListener('change',async function(e){
+  if(!e.target.files[0]||!pendingPlaceId)return;
+  showLoading(true);
+  const blob=await compressImage(e.target.files[0],800,.8);
+  const path=`places/${Date.now()}.jpg`;
+  const {error:se}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg'});
+  if(!se){
+    const {data:{publicUrl}}=sb.storage.from('photos').getPublicUrl(path);
+    await sb.from('visited').update({img_url:publicUrl}).eq('id',pendingPlaceId);
+    toast('照片已添加 🌸'); await fetchVisited();
+  }
+  showLoading(false); document.getElementById('placeImgModal').classList.remove('open'); pendingPlaceId=null; this.value='';
+});
+async function fetchVisited(){
+  const {data}=await sb.from('visited').select('*').order('created_at',{ascending:true});
+  visited=data||[]; renderVisited();
+}
+function renderVisited(){
+  const list=document.getElementById('visitedList');
+  list.querySelectorAll('.place-card').forEach(c=>c.remove());
+  document.getElementById('visitedCount').textContent=visited.length+' 个地方';
+  document.getElementById('emptyVisited').style.display=visited.length?'none':'block';
+  visited.forEach(v=>{
+    const card=document.createElement('div'); card.className='place-card';
+    card.innerHTML=`<div class="place-img-wrap">${v.img_url?`<img src="${v.img_url}" loading="lazy" alt="">`:'<div class="place-img-ph">🗺</div>'}<div class="place-img-add">＋ 添加照片</div></div><div class="place-body"><div class="place-info"><div class="place-city">${v.city}</div><div class="place-note">${v.note||''}</div></div><button class="place-del">✕</button></div>`;
+    if(v.img_url) card.querySelector('img').addEventListener('click',()=>openLightbox(v.img_url,v.city+(v.note?' · '+v.note:'')));
+    card.querySelector('.place-img-add').addEventListener('click',()=>{pendingPlaceId=v.id;document.getElementById('placeImgModal').classList.add('open')});
+    card.querySelector('.place-del').addEventListener('click',async()=>{await sb.from('visited').delete().eq('id',v.id);toast('已删除');await fetchVisited()});
+    list.appendChild(card);
+  });
+}
+
+// ── BUCKET ──
+document.getElementById('addBucketBtn').addEventListener('click',()=>document.getElementById('bucketModal').classList.add('open'));
+document.getElementById('bucketCancel').addEventListener('click',()=>document.getElementById('bucketModal').classList.remove('open'));
+document.getElementById('bucketConfirm').addEventListener('click',async()=>{
+  const city=document.getElementById('bCity').value.trim(); if(!city)return;
+  await sb.from('bucket').insert([{city,note:document.getElementById('bNote').value.trim(),done:false}]);
+  toast('心愿已记下 ✨');
+  document.getElementById('bCity').value=''; document.getElementById('bNote').value='';
+  document.getElementById('bucketModal').classList.remove('open');
+  await fetchBucket();
+});
+async function fetchBucket(){
+  const {data}=await sb.from('bucket').select('*').order('created_at',{ascending:true});
+  bucket=data||[]; renderBucket();
+}
+function renderBucket(){
+  const list=document.getElementById('bucketList');
+  list.querySelectorAll('.bucket-item').forEach(c=>c.remove());
+  const total=bucket.length, done=bucket.filter(b=>b.done).length;
+  document.getElementById('bucketCount').textContent=`${done}/${total} 个心愿`;
+  document.getElementById('emptyBucket').style.display=bucket.length?'none':'block';
+  [...bucket].sort((a,b)=>a.done-b.done).forEach(b=>{
+    const item=document.createElement('div'); item.className='bucket-item'+(b.done?' done':'');
+    item.innerHTML=`<div class="bucket-check${b.done?' checked':''}">${b.done?'✓':''}</div><div class="bucket-text">${b.city}${b.note?` <span class="bucket-sub">· ${b.note}</span>`:''}</div><button class="bucket-del">✕</button>`;
+    item.querySelector('.bucket-check').addEventListener('click',async()=>{
+      await sb.from('bucket').update({done:!b.done}).eq('id',b.id);
+      if(!b.done)spawnPetals(); await fetchBucket();
+    });
+    item.querySelector('.bucket-del').addEventListener('click',async()=>{await sb.from('bucket').delete().eq('id',b.id);toast('已删除');await fetchBucket()});
+    list.appendChild(item);
+  });
+}
+
+// ── PETALS ──
+function spawnPetals(){
+  const emojis=['🌸','✨','💗','🌺','💫'];
+  for(let i=0;i<6;i++) setTimeout(()=>{
+    const p=document.createElement('div'); p.className='petal';
+    p.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    p.style.left=Math.random()*100+'vw'; p.style.top='-20px';
+    p.style.animationDuration=(2+Math.random()*2)+'s';
+    document.body.appendChild(p); setTimeout(()=>p.remove(),4000);
+  },i*150);
+}
+</script>
+</body>
+</html>
